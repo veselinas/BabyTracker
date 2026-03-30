@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Baby Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+
+<style>
+  :root {
+    --cream: #fdf6ee;
+    --warm-white: #fffaf5;
+    --blush: #f5c5b0;
+    --blush-light: #fce8df;
+    --sage: #a8c5a0;
+    --sage-light: #d8ead5;
+    --lavender: #c5b8e0;
+    --lavender-light: #ede8f7;
+    --sky: #a8cfe0;
+    --sky-light: #dceef7;
+    --peach: #f0a080;
+    --ink: #3a2e28;
+    --ink-soft: #6b5a50;
+    --ink-muted: #9e8c84;
+    --border: #e8ddd5;
+    --card-shadow: 0 2px 16px rgba(58,46,40,0.07);
+    --radius: 18px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Header ─── */
+  .app-header {
+    background: var(--warm-white);
+    border-bottom: 1.5px solid var(--border);
+    padding: 14px 16px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(58,46,40,0.05);
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .app-title {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    flex: 1;
+    letter-spacing: -0.3px;
+  }
+
+  .app-title span { color: var(--peach); }
+
+  .auth-btn {
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .auth-btn:active { opacity: 0.7; }
+  .auth-btn.signed-in { background: var(--sage); color: var(--ink); }
+
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .date-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--blush-light);
+    border: 1.5px solid var(--blush);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .date-btn .icon { font-size: 16px; flex-shrink: 0; }
+
+  .weight-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--sage-light);
+    border: 1.5px solid var(--sage);
+    border-radius: 12px;
+    padding: 6px 10px;
+    flex-shrink: 0;
+  }
+
+  .weight-wrap input {
+    width: 60px;
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    text-align: right;
+    outline: none;
+  }
+
+  .weight-wrap label {
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  .save-btn {
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .save-btn:active { transform: scale(0.96); }
+  .save-btn.saving { background: var(--sage); }
+  .save-btn.saved { background: #6db86d; }
+
+  /* ─── Date Picker Modal ─── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(58,46,40,0.4);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal-sheet {
+    background: var(--warm-white);
+    border-radius: 24px 24px 0 0;
+    padding: 20px 20px 40px;
+    width: 100%;
+    max-width: 480px;
+    animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .modal-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+
+  .modal-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 16px;
+    color: var(--ink);
+  }
+
+  /* Calendar */
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .cal-nav button {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px 10px;
+    color: var(--ink-soft);
+    border-radius: 8px;
+  }
+  .cal-nav button:active { background: var(--border); }
+
+  .cal-month {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    text-align: center;
+  }
+
+  .cal-day-name {
+    font-size: 11px;
+    color: var(--ink-muted);
+    padding: 4px 0;
+    font-weight: 500;
+  }
+
+  .cal-day {
+    padding: 8px 4px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+    color: var(--ink);
+  }
+  .cal-day:hover { background: var(--blush-light); }
+  .cal-day.today { font-weight: 600; color: var(--peach); }
+  .cal-day.selected { background: var(--ink); color: white; }
+  .cal-day.other-month { color: var(--ink-muted); }
+  .cal-day.future { color: var(--border); pointer-events: none; }
+
+  .modal-close {
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--blush-light);
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  /* ─── Main Content ─── */
+  .main {
+    padding: 16px 14px 100px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  /* Status bar */
+  .status-bar {
+    background: var(--lavender-light);
+    border: 1.5px solid var(--lavender);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+    text-align: center;
+    display: none;
+  }
+  .status-bar.show { display: block; }
+
+  /* ─── Section Cards ─── */
+  .section-card {
+    background: var(--warm-white);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    border: 1.5px solid var(--border);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+    gap: 8px;
+  }
+
+  .section-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .section-count {
+    font-size: 12px;
+    color: var(--ink-muted);
+    background: var(--cream);
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .section-chevron {
+    font-size: 12px;
+    color: var(--ink-muted);
+    transition: transform 0.2s;
+  }
+  .section-card.open .section-chevron { transform: rotate(180deg); }
+
+  .section-body {
+    display: none;
+    border-top: 1.5px solid var(--border);
+    padding: 0 10px 10px;
+  }
+  .section-card.open .section-body { display: block; }
+
+  /* ─── Table / Rows ─── */
+  .data-table {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    min-width: max-content;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 6px 4px;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 5px 4px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f0e8e0;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tr.estimated-row td { background: #fff9e6; }
+
+  .cell-input {
+    border: 1.5px solid transparent;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink);
+    background: transparent;
+    width: 100%;
+    min-width: 50px;
+    transition: border-color 0.15s, background 0.15s;
+    outline: none;
+  }
+  .cell-input:focus {
+    border-color: var(--blush);
+    background: var(--warm-white);
+  }
+
+  select.cell-input {
+    cursor: pointer;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239e8c84'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    padding-right: 20px;
+  }
+
+  .delete-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid #f0c0b0;
+    background: #fff0eb;
+    color: #d07060;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    font-family: monospace;
+    transition: all 0.15s;
+  }
+  .delete-btn:active { background: #ffd0c0; }
+
+  .add-row-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+    transition: all 0.15s;
+  }
+  .add-row-btn:active { background: var(--cream); }
+
+  /* Estimated toggle (small pill) */
+  .est-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 7px;
+    cursor: pointer;
+    white-space: nowrap;
+    color: var(--ink-soft);
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .est-toggle.on { background: #fff3c0; border-color: #e8c840; color: #806010; }
+
+  /* ─── Toast ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 500;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ─── Sign-in prompt ─── */
+  .signin-prompt {
+    text-align: center;
+    padding: 48px 24px;
+  }
+  .signin-prompt .big-icon { font-size: 56px; margin-bottom: 16px; }
+  .signin-prompt h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .signin-prompt p { font-size: 14px; color: var(--ink-soft); line-height: 1.6; margin-bottom: 24px; }
+
+  .signin-big-btn {
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 14px 28px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2.5px solid var(--border);
+    border-top-color: var(--peach);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 24px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Section colours */
+  .icon-feeding { background: var(--blush-light); }
+  .icon-pumping { background: var(--sky-light); }
+  .icon-nappies { background: #e8f5e8; }
+  .icon-sleeping { background: var(--lavender-light); }
+  .icon-activities { background: #fdf0d5; }
+
+  /* Config notice */
+  .config-notice {
+    background: #fff8e0;
+    border: 1.5px solid #f0d060;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: #6b5010;
+    margin-bottom: 14px;
+    line-height: 1.6;
+  }
+  .config-notice strong { display: block; margin-bottom: 4px; font-size: 14px; }
+  .config-notice code {
+    background: rgba(0,0,0,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── Date Picker Modal ─── -->
+<div class="modal-overlay" id="dateModal" onclick="closeDateModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="calMonthLabel"></div>
+    <div class="cal-nav">
+      <button onclick="calNav(-1)">‹</button>
+      <span class="cal-month" id="calMonthYear"></span>
+      <button onclick="calNav(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <button class="modal-close" onclick="closeDateModal()">Done</button>
+  </div>
+</div>
+
+<!-- ─── Toast ─── -->
+<div class="toast" id="toast"></div>
+
+<!-- ─── App Header ─── -->
+<div class="app-header">
+  <div class="header-top">
+    <div class="app-title">baby <span>tracker</span> 🌸</div>
+    <button class="auth-btn" id="authBtn" onclick="toggleAuth()">Sign in</button>
+  </div>
+  <div class="header-controls">
+    <button class="date-btn" onclick="openDateModal()">
+      <span class="icon">📅</span>
+      <span id="dateDisplay">Today</span>
+    </button>
+    <div class="weight-wrap">
+      <input type="number" id="weightInput" placeholder="—" step="0.01" min="0" max="30">
+      <label>kg</label>
+    </div>
+    <button class="save-btn" id="saveBtn" onclick="saveAll()">
+      <span>💾</span> Save
+    </button>
+  </div>
+</div>
+
+<!-- ─── Main ─── -->
+<div class="main" id="mainContent">
+  <div class="signin-prompt" id="signinPrompt">
+    <div class="big-icon">🍼</div>
+    <h2>Welcome to Baby Tracker</h2>
+    <p>Connect your OneDrive account to start tracking feeds, nappies, sleep and more — all stored safely in your own CSV files.</p>
+    <button class="signin-big-btn" onclick="toggleAuth()">
+      ☁️ Sign in with Microsoft
+    </button>
+  </div>
+  <div id="appBody" style="display:none">
+    <div class="config-notice" id="configNotice" style="display:none">
+      <strong>⚙️ Setup needed</strong>
+      Open this file in a text editor and set your <code>AZURE_CLIENT_ID</code> and <code>ONEDRIVE_FOLDER</code> at the top of the script section. See comments for instructions.
+    </div>
+    <div class="status-bar" id="statusBar"></div>
+    <!-- Sections rendered by JS -->
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  ⚙️  CONFIGURATION — edit these two values
+// ══════════════════════════════════════════════════════════
+//
+//  AZURE_CLIENT_ID:
+//    1. Go to https://portal.azure.com → Azure Active Directory → App registrations
+//    2. New registration: name it "Baby Tracker", Accounts: "Personal Microsoft accounts only"
+//    3. Redirect URI: Single-page app (SPA) → set to the URL where you'll open this file
+//       (e.g. https://yourdomain.com/baby-tracker.html  OR  http://localhost  for local use)
+//    4. Copy the Application (client) ID here
+//
+//  ONEDRIVE_FOLDER:
+//    Path inside your OneDrive where the CSV files live, e.g. "BabyTracker" or "Documents/Baby"
+//    Files expected: weight.csv, feeding.csv, pumping.csv, nappies.csv, sleeping.csv, activities.csv
+//
+const AZURE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE';  // ← replace
+const ONEDRIVE_FOLDER = 'BabyTracker';           // ← replace if needed
+// ══════════════════════════════════════════════════════════
+
+const CSV_FILES = {
+  weight:     { file: 'weight.csv',     cols: ['date','weight','estimated','valid'] },
+  feeding:    { file: 'feeding.csv',    cols: ['date','time','amount','type','spitting','estimated','valid'] },
+  pumping:    { file: 'pumping.csv',    cols: ['date','time','right_amount','left_amount','duration','estimated','valid'] },
+  nappies:    { file: 'nappies.csv',    cols: ['date','time','type','estimated','valid'] },
+  sleeping:   { file: 'sleeping.csv',   cols: ['date','start_time','end_time','location','interrupted','comment','estimated','valid'] },
+  activities: { file: 'activities.csv', cols: ['date','type','duration','estimated','valid'] },
+};
+
+const SECTION_DEFS = [
+  {
+    key: 'feeding',
+    label: 'Feeding',
+    icon: '🍼',
+    iconClass: 'icon-feeding',
+    fields: [
+      { key: 'time',     label: 'Time',     type: 'time' },
+      { key: 'amount',   label: 'Amount (ml)', type: 'number', width: 70 },
+      { key: 'type',     label: 'Type',     type: 'select',
+        options: ['formula','breast milk','breastfeeding right','breastfeeding left'] },
+      { key: 'spitting', label: 'Spit-up',  type: 'select', options: ['no','little','a lot'] },
+    ]
+  },
+  {
+    key: 'pumping',
+    label: 'Pumping',
+    icon: '💧',
+    iconClass: 'icon-pumping',
+    fields: [
+      { key: 'time',         label: 'Time',      type: 'time' },
+      { key: 'right_amount', label: 'Right (ml)', type: 'number', width: 60 },
+      { key: 'left_amount',  label: 'Left (ml)',  type: 'number', width: 60 },
+      { key: 'duration',     label: 'Min',        type: 'number', width: 50 },
+    ]
+  },
+  {
+    key: 'nappies',
+    label: 'Nappies',
+    icon: '👶',
+    iconClass: 'icon-nappies',
+    fields: [
+      { key: 'time', label: 'Time', type: 'time' },
+      { key: 'type', label: 'Type', type: 'select',
+        options: ['wet','dirty and wet','wet and heavy','lightly wet','dirty but not wet'] },
+    ]
+  },
+  {
+    key: 'sleeping',
+    label: 'Sleeping',
+    icon: '🌙',
+    iconClass: 'icon-sleeping',
+    fields: [
+      { key: 'start_time',  label: 'Start',    type: 'time' },
+      { key: 'end_time',    label: 'End',       type: 'time' },
+      { key: 'location',    label: 'Location',  type: 'select-custom',
+        options: ['cot','contact nap','pram','car seat'] },
+      { key: 'interrupted', label: 'Disturbed', type: 'select', options: ['no','yes'] },
+      { key: 'comment',     label: 'Note',      type: 'text', width: 90 },
+    ]
+  },
+  {
+    key: 'activities',
+    label: 'Activities',
+    icon: '🌤',
+    iconClass: 'icon-activities',
+    fields: [
+      { key: 'type',     label: 'Type',     type: 'select-custom',
+        options: ['tummy time','walk','bath'] },
+      { key: 'duration', label: 'Min',      type: 'number', width: 55 },
+    ]
+  },
+];
+
+// ─── MSAL Setup ───
+const msalConfig = {
+  auth: {
+    clientId: AZURE_CLIENT_ID,
+    authority: 'https://login.microsoftonline.com/consumers',
+    redirectUri: window.location.href.split('?')[0].split('#')[0],
+  },
+  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+};
+
+let msalInstance = null;
+let accessToken = null;
+let isSignedIn = false;
+
+// App state
+let selectedDate = todayStr();
+let csvData = {};       // key → array of row objects
+let weightValue = '';   // current weight input value
+let calViewYear, calViewMonth;
+let isDirty = false;
+
+// ─── Utilities ───
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function formatDateDisplay(str) {
+  if (str === todayStr()) return 'Today';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+}
+
+function showToast(msg, duration=2200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function setStatus(msg) {
+  const s = document.getElementById('statusBar');
+  if (msg) { s.textContent = msg; s.classList.add('show'); }
+  else { s.classList.remove('show'); }
+}
+
+// ─── Auth ───
+async function initMsal() {
+  if (AZURE_CLIENT_ID === 'YOUR_CLIENT_ID_HERE') {
+    document.getElementById('configNotice').style.display = 'block';
+    return;
+  }
+  try {
+    msalInstance = new msal.PublicClientApplication(msalConfig);
+    await msalInstance.initialize();
+    const resp = await msalInstance.handleRedirectPromise();
+    if (resp) {
+      accessToken = resp.accessToken;
+      onSignedIn();
+      return;
+    }
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      try {
+        const r = await msalInstance.acquireTokenSilent({
+          scopes: ['Files.ReadWrite'],
+          account: accounts[0]
+        });
+        accessToken = r.accessToken;
+        onSignedIn();
+      } catch(e) { /* silent fail, user must sign in */ }
+    }
+  } catch(e) {
+    console.error('MSAL init error', e);
+  }
+}
+
+async function toggleAuth() {
+  if (isSignedIn) {
+    msalInstance.logoutPopup();
+    isSignedIn = false;
+    accessToken = null;
+    document.getElementById('authBtn').textContent = 'Sign in';
+    document.getElementById('authBtn').classList.remove('signed-in');
+    document.getElementById('signinPrompt').style.display = '';
+    document.getElementById('appBody').style.display = 'none';
+    return;
+  }
+  if (!msalInstance) { showToast('⚙️ Please set your Client ID first'); return; }
+  try {
+    const r = await msalInstance.loginPopup({ scopes: ['Files.ReadWrite'] });
+    const tr = await msalInstance.acquireTokenSilent({ scopes: ['Files.ReadWrite'], account: r.account });
+    accessToken = tr.accessToken;
+    onSignedIn();
+  } catch(e) {
+    showToast('Sign-in failed: ' + e.message);
+  }
+}
+
+function onSignedIn() {
+  isSignedIn = true;
+  document.getElementById('authBtn').textContent = 'Sign out';
+  document.getElementById('authBtn').classList.add('signed-in');
+  document.getElementById('signinPrompt').style.display = 'none';
+  document.getElementById('appBody').style.display = 'block';
+  loadAllData();
+}
+
+// ─── OneDrive / Graph API ───
+async function graphGet(path) {
+  const r = await fetch('https://graph.microsoft.com/v1.0' + path, {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function graphPut(path, body) {
+  const r = await fetch('https://graph.microsoft.com/v1.0' + path, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'text/plain' },
+    body
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function readCsv(filename) {
+  try {
+    const meta = await graphGet(`/me/drive/root:/${ONEDRIVE_FOLDER}/${filename}`);
+    const dlUrl = meta['@microsoft.graph.downloadUrl'];
+    const r = await fetch(dlUrl);
+    const text = await r.text();
+    return parseCsv(text);
+  } catch(e) {
+    // File doesn't exist yet → return empty
+    return [];
+  }
+}
+
+async function writeCsv(key, rows) {
+  const { file, cols } = CSV_FILES[key];
+  const text = serialiseCsv(rows, cols);
+  await graphPut(`/me/drive/root:/${ONEDRIVE_FOLDER}/${file}:/content`, text);
+}
+
+// ─── CSV Parser ───
+function parseCsv(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim().split('\n');
+  if (lines.length < 1) return [];
+  const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase().replace(/ /g,'_'));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = parseCsvLine(lines[i]);
+    const obj = {};
+    headers.forEach((h,j) => obj[h] = (vals[j] || '').trim());
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function parseCsvLine(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQuote = !inQuote; }
+    else if (c === ',' && !inQuote) { result.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur);
+  return result;
+}
+
+function serialiseCsv(rows, cols) {
+  const header = cols.join(',');
+  const lines = rows.map(row => cols.map(c => {
+    const v = (row[c] == null ? '' : String(row[c]));
+    return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g,'""')}"` : v;
+  }).join(','));
+  return [header, ...lines].join('\n') + '\n';
+}
+
+// ─── Data Loading ───
+async function loadAllData() {
+  setStatus('Loading data…');
+  renderSections(true);
+  try {
+    const keys = Object.keys(CSV_FILES);
+    const results = await Promise.all(keys.map(k => readCsv(CSV_FILES[k].file)));
+    keys.forEach((k, i) => csvData[k] = results[i]);
+
+    // Set weight display
+    updateWeightDisplay();
+    renderSections(false);
+    setStatus('');
+  } catch(e) {
+    setStatus('Error loading data: ' + e.message);
+  }
+}
+
+function updateWeightDisplay() {
+  const rows = (csvData.weight || []).filter(r => r.valid !== 'No');
+  rows.sort((a,b) => a.date < b.date ? -1 : 1);
+  const latest = rows.filter(r => r.date <= selectedDate).pop();
+  document.getElementById('weightInput').placeholder = latest ? latest.weight : '—';
+  // Check if today's date has a weight entry
+  const todayWeight = rows.find(r => r.date === selectedDate);
+  document.getElementById('weightInput').value = todayWeight ? todayWeight.weight : '';
+  weightValue = document.getElementById('weightInput').value;
+}
+
+// ─── Render Sections ───
+function renderSections(loading) {
+  const body = document.getElementById('appBody');
+  // Remove old sections
+  body.querySelectorAll('.section-card').forEach(el => el.remove());
+
+  if (loading) {
+    const spin = document.createElement('div');
+    spin.className = 'spinner';
+    spin.id = 'loadSpinner';
+    body.appendChild(spin);
+    return;
+  }
+  document.getElementById('loadSpinner')?.remove();
+
+  SECTION_DEFS.forEach(sec => {
+    const card = buildSectionCard(sec);
+    body.appendChild(card);
+  });
+}
+
+function getValidRows(key) {
+  return (csvData[key] || []).filter(r => r.valid !== 'No' && r.date === selectedDate);
+}
+
+function buildSectionCard(sec) {
+  const rows = getValidRows(sec.key);
+  const card = document.createElement('div');
+  card.className = 'section-card';
+  card.id = 'section-' + sec.key;
+
+  // Header
+  card.innerHTML = `
+    <div class="section-header" onclick="toggleSection('${sec.key}')">
+      <div class="section-header-left">
+        <div class="section-icon ${sec.iconClass}">${sec.icon}</div>
+        <span class="section-title">${sec.label}</span>
+        <span class="section-count" id="count-${sec.key}">${rows.length}</span>
+      </div>
+      <span class="section-chevron">▼</span>
+    </div>
+    <div class="section-body" id="body-${sec.key}"></div>
+  `;
+
+  const body = card.querySelector('.section-body');
+  renderSectionBody(sec, rows, body);
+
+  return card;
+}
+
+function renderSectionBody(sec, rows, bodyEl) {
+  bodyEl.innerHTML = '';
+
+  if (rows.length > 0) {
+    // Table
+    const wrap = document.createElement('div');
+    wrap.className = 'data-table';
+
+    const tbl = document.createElement('table');
+    // Header row
+    const thead = tbl.createTHead();
+    const hr = thead.insertRow();
+    sec.fields.forEach(f => {
+      const th = document.createElement('th');
+      th.textContent = f.label;
+      hr.appendChild(th);
+    });
+    const thEst = document.createElement('th'); thEst.textContent = 'Est?'; hr.appendChild(thEst);
+    const thDel = document.createElement('th'); hr.appendChild(thDel);
+
+    // Body rows
+    const tbody = tbl.createTBody();
+    rows.forEach((row, ri) => {
+      // Find global index
+      const globalIdx = (csvData[sec.key] || []).indexOf(row);
+      const tr = tbody.insertRow();
+      if (row.estimated === 'Yes') tr.classList.add('estimated-row');
+
+      sec.fields.forEach(f => {
+        const td = tr.insertCell();
+        td.appendChild(buildFieldInput(f, row[f.key] || '', globalIdx, f.key, sec));
+      });
+
+      // Estimated toggle
+      const tdEst = tr.insertCell();
+      const estBtn = document.createElement('span');
+      estBtn.className = 'est-toggle' + (row.estimated === 'Yes' ? ' on' : '');
+      estBtn.textContent = row.estimated === 'Yes' ? '⚠ est' : 'exact';
+      estBtn.onclick = () => {
+        csvData[sec.key][globalIdx].estimated = row.estimated === 'Yes' ? 'No' : 'Yes';
+        isDirty = true;
+        refreshSection(sec);
+      };
+      tdEst.appendChild(estBtn);
+
+      // Delete
+      const tdDel = tr.insertCell();
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-btn';
+      delBtn.innerHTML = '−';
+      delBtn.title = 'Remove entry';
+      delBtn.onclick = () => {
+        if (csvData[sec.key][globalIdx]) {
+          csvData[sec.key][globalIdx].valid = 'No';
+          isDirty = true;
+          refreshSection(sec);
+        }
+      };
+      tdDel.appendChild(delBtn);
+    });
+
+    wrap.appendChild(tbl);
+    bodyEl.appendChild(wrap);
+  }
+
+  // Add row button
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-row-btn';
+  addBtn.innerHTML = '＋ Add entry';
+  addBtn.onclick = () => addRow(sec);
+  bodyEl.appendChild(addBtn);
+}
+
+function buildFieldInput(f, value, globalIdx, fieldKey, sec) {
+  if (f.type === 'select') {
+    const sel = document.createElement('select');
+    sel.className = 'cell-input';
+    f.options.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt; o.textContent = opt;
+      if (opt === value) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = () => {
+      csvData[sec.key][globalIdx][fieldKey] = sel.value;
+      isDirty = true;
+    };
+    return sel;
+  }
+
+  if (f.type === 'select-custom') {
+    // Datalist for custom options
+    const wrap = document.createElement('span');
+    const listId = sec.key + '_' + fieldKey + '_list';
+    const inp = document.createElement('input');
+    inp.className = 'cell-input';
+    inp.setAttribute('list', listId);
+    inp.value = value;
+    if (f.width) inp.style.width = f.width + 'px';
+    inp.oninput = () => {
+      csvData[sec.key][globalIdx][fieldKey] = inp.value;
+      isDirty = true;
+    };
+    // Build datalist (shared, created once in DOM)
+    if (!document.getElementById(listId)) {
+      const dl = document.createElement('datalist');
+      dl.id = listId;
+      f.options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt; dl.appendChild(o);
+      });
+      document.body.appendChild(dl);
+    }
+    wrap.appendChild(inp);
+    return wrap;
+  }
+
+  const inp = document.createElement('input');
+  inp.className = 'cell-input';
+  inp.type = f.type === 'time' ? 'time' : f.type === 'number' ? 'number' : 'text';
+  inp.value = value;
+  if (f.width) inp.style.width = f.width + 'px';
+  if (f.type === 'number') { inp.min = '0'; inp.step = f.key.includes('amount') ? '0.5' : '1'; }
+  inp.oninput = () => {
+    csvData[sec.key][globalIdx][fieldKey] = inp.value;
+    isDirty = true;
+  };
+  return inp;
+}
+
+function addRow(sec) {
+  if (!csvData[sec.key]) csvData[sec.key] = [];
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0,5);
+  const newRow = { date: selectedDate, valid: 'Yes', estimated: 'No' };
+  sec.fields.forEach(f => {
+    if (f.type === 'time') newRow[f.key] = timeStr;
+    else if (f.type === 'select' || f.type === 'select-custom') newRow[f.key] = f.options[0];
+    else newRow[f.key] = '';
+  });
+  csvData[sec.key].push(newRow);
+  isDirty = true;
+  refreshSection(sec);
+  // Open section if closed
+  const card = document.getElementById('section-' + sec.key);
+  if (!card.classList.contains('open')) card.classList.add('open');
+}
+
+function refreshSection(sec) {
+  const rows = getValidRows(sec.key);
+  document.getElementById('count-' + sec.key).textContent = rows.length;
+  const bodyEl = document.getElementById('body-' + sec.key);
+  renderSectionBody(sec, rows, bodyEl);
+}
+
+function toggleSection(key) {
+  const card = document.getElementById('section-' + key);
+  card.classList.toggle('open');
+}
+
+// ─── Save ───
+async function saveAll() {
+  if (!isSignedIn) { showToast('Please sign in first'); return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.classList.add('saving');
+  btn.querySelector('span:last-child').textContent = 'Saving…';
+
+  try {
+    // Handle weight
+    const wVal = document.getElementById('weightInput').value.trim();
+    if (wVal && wVal !== weightValue) {
+      if (!csvData.weight) csvData.weight = [];
+      const existing = csvData.weight.find(r => r.date === selectedDate && r.valid !== 'No');
+      if (existing) { existing.weight = wVal; }
+      else { csvData.weight.push({ date: selectedDate, weight: wVal, estimated: 'No', valid: 'Yes' }); }
+      isDirty = true;
+    }
+
+    const writes = [];
+    const keys = Object.keys(CSV_FILES);
+    for (const k of keys) {
+      if (csvData[k] !== undefined) writes.push(writeCsv(k, csvData[k]));
+    }
+    await Promise.all(writes);
+
+    isDirty = false;
+    weightValue = wVal;
+    btn.classList.remove('saving');
+    btn.classList.add('saved');
+    btn.querySelector('span:last-child').textContent = '✓ Saved';
+    setTimeout(() => {
+      btn.classList.remove('saved');
+      btn.querySelector('span:last-child').textContent = 'Save';
+    }, 2000);
+    showToast('✓ Saved to OneDrive');
+  } catch(e) {
+    btn.classList.remove('saving');
+    btn.querySelector('span:last-child').textContent = 'Save';
+    showToast('Error saving: ' + e.message, 4000);
+    console.error(e);
+  }
+}
+
+// ─── Calendar ───
+function openDateModal() {
+  const [y, m] = selectedDate.split('-').map(Number);
+  calViewYear = y; calViewMonth = m;
+  renderCal();
+  document.getElementById('dateModal').classList.add('open');
+}
+
+function closeDateModal(e) {
+  if (!e || e.target === document.getElementById('dateModal')) {
+    document.getElementById('dateModal').classList.remove('open');
+  }
+}
+
+function calNav(dir) {
+  calViewMonth += dir;
+  if (calViewMonth > 12) { calViewMonth = 1; calViewYear++; }
+  if (calViewMonth < 1) { calViewMonth = 12; calViewYear--; }
+  renderCal();
+}
+
+function renderCal() {
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  document.getElementById('calMonthYear').textContent = months[calViewMonth-1] + ' ' + calViewYear;
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-day-name'; el.textContent = d; grid.appendChild(el);
+  });
+
+  const first = new Date(calViewYear, calViewMonth-1, 1);
+  let startDay = first.getDay() - 1; if (startDay < 0) startDay = 6;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  for (let i = 0; i < startDay; i++) {
+    const prev = new Date(calViewYear, calViewMonth-1, -startDay+1+i);
+    const el = document.createElement('div');
+    el.className = 'cal-day other-month'; el.textContent = prev.getDate(); grid.appendChild(el);
+  }
+
+  const daysInMonth = new Date(calViewYear, calViewMonth, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(calViewYear, calViewMonth-1, d);
+    const dtStr = dt.toISOString().slice(0,10);
+    const el = document.createElement('div');
+    el.className = 'cal-day';
+    if (dtStr === todayStr()) el.classList.add('today');
+    if (dtStr === selectedDate) el.classList.add('selected');
+    if (dt > today) el.classList.add('future');
+    el.textContent = d;
+    el.onclick = () => selectDate(dtStr);
+    grid.appendChild(el);
+  }
+}
+
+function selectDate(str) {
+  selectedDate = str;
+  document.getElementById('dateDisplay').textContent = formatDateDisplay(str);
+  closeDateModal();
+  updateWeightDisplay();
+  if (isSignedIn) {
+    SECTION_DEFS.forEach(sec => refreshSection(sec));
+  }
+}
+
+// ─── Weight input tracking ───
+document.getElementById('weightInput').addEventListener('input', function() {
+  isDirty = true;
+});
+
+// ─── Init ───
+window.addEventListener('load', () => {
+  document.getElementById('dateDisplay').textContent = formatDateDisplay(selectedDate);
+  initMsal();
+});
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', e => {
+  if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+});
+</script>
+</body>
+</html>
