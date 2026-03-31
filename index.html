@@ -651,9 +651,9 @@ const ONEDRIVE_FOLDER = 'App_BabyTracker';           // ← replace if needed
 const CSV_FILES = {
   weight:     { file: 'weight.csv',     cols: ['date','weight','estimated','valid'] },
   feeding:    { file: 'feeding.csv',    cols: ['date','time','amount','type','spitting','estimated','valid'] },
-  pumping:    { file: 'pumping.csv',    cols: ['date','time','right_amount','left_amount','duration','estimated','valid'] },
+  pumping:    { file: 'pumping.csv',    cols: ['date','time','pump','right_amount','left_amount','duration','spill','estimated','valid'] },
   nappies:    { file: 'nappies.csv',    cols: ['date','time','type','estimated','valid'] },
-  sleeping:   { file: 'sleeping.csv',   cols: ['date','start_time','end_time','location','interrupted','comment','estimated','valid'] },
+  sleeping:   { file: 'sleeping.csv',   cols: ['date','start_time','end_time','duration','location','interrupted','comment','estimated','valid'] },
   activities: { file: 'activities.csv', cols: ['date','type','duration','estimated','valid'] },
 };
 
@@ -677,10 +677,12 @@ const SECTION_DEFS = [
     icon: '💧',
     iconClass: 'icon-pumping',
     fields: [
-      { key: 'time',         label: 'Time',      type: 'time' },
-      { key: 'right_amount', label: 'Right (ml)', type: 'number', width: 60 },
-      { key: 'left_amount',  label: 'Left (ml)',  type: 'number', width: 60 },
-      { key: 'duration',     label: 'Min',        type: 'number', width: 50 },
+      { key: 'time',         label: 'Time',       type: 'time' },
+      { key: 'pump',         label: 'Pump',        type: 'select', options: ['main','wearable'] },
+      { key: 'right_amount', label: 'Right (ml)',  type: 'number', width: 60 },
+      { key: 'left_amount',  label: 'Left (ml)',   type: 'number', width: 60 },
+      { key: 'duration',     label: 'Min',         type: 'number', width: 50 },
+      { key: 'spill',        label: 'Spill',       type: 'select', options: ['no','yes'] },
     ]
   },
   {
@@ -702,8 +704,9 @@ const SECTION_DEFS = [
     fields: [
       { key: 'start_time',  label: 'Start',    type: 'time' },
       { key: 'end_time',    label: 'End',       type: 'time' },
+      { key: 'duration',    label: 'Duration',  type: 'derived', derive: calcSleepDuration, width: 60 },
       { key: 'location',    label: 'Location',  type: 'select-custom',
-        options: ['cot','contact nap','pram','car seat'] },
+        options: ['cot_crib','contact_nap','pram','car_seat'] },
       { key: 'interrupted', label: 'Disturbed', type: 'select', options: ['no','yes'] },
       { key: 'comment',     label: 'Note',      type: 'text', width: 90 },
     ]
@@ -930,6 +933,17 @@ function updateWeightDisplay() {
   weightValue = document.getElementById('weightInput').value;
 }
 
+function calcSleepDuration(row) {
+  if (!row.start_time || !row.end_time) return '—';
+  const [sh, sm] = row.start_time.split(':').map(Number);
+  const [eh, em] = row.end_time.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60; // handles overnight sleep
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+  
 // ─── Render Sections ───
 function renderSections(loading) {
   const body = document.getElementById('appBody');
@@ -1054,6 +1068,13 @@ function renderSectionBody(sec, rows, bodyEl) {
 }
 
 function buildFieldInput(f, value, globalIdx, fieldKey, sec) {
+  if (f.type === 'derived') {
+    const span = document.createElement('span');
+    span.style.cssText = 'padding:4px 6px; font-size:12.5px; color:var(--ink-soft); white-space:nowrap;';
+    span.textContent = f.derive(csvData[sec.key][globalIdx]);
+    return span;
+  }
+  
   if (f.type === 'select') {
     const sel = document.createElement('select');
     sel.className = 'cell-input';
@@ -1117,6 +1138,7 @@ function addRow(sec) {
   const newRow = { date: selectedDate, valid: 'Yes', estimated: 'No' };
   sec.fields.forEach(f => {
     if (f.type === 'time') newRow[f.key] = timeStr;
+    else if (f.type === 'derived') { /* calculated, skip */ }
     else if (f.type === 'select' || f.type === 'select-custom') newRow[f.key] = f.options[0];
     else newRow[f.key] = '';
   });
