@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@azure/msal-browser@v5.x/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <style>
   :root {
@@ -565,6 +566,137 @@
     border-radius: 4px;
     font-size: 12px;
   }
+   
+/* ─── Charts Section ─── */
+.charts-card {
+  background: var(--warm-white);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+  border: 1.5px solid var(--border);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.charts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.charts-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.charts-body {
+  display: none;
+  border-top: 1.5px solid var(--border);
+  padding: 12px;
+}
+.charts-card.open .charts-body { display: block; }
+.charts-card.open .section-chevron { transform: rotate(180deg); }
+
+.generate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: var(--ink);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: opacity 0.2s;
+}
+.generate-btn:active { opacity: 0.75; }
+.generate-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Individual chart containers */
+.chart-block {
+  margin-bottom: 20px;
+}
+
+.chart-title {
+  font-family: 'Fraunces', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.chart-subtitle {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-bottom: 10px;
+}
+
+.chart-scroll-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--cream);
+  padding: 10px 8px 6px;
+  cursor: grab;
+}
+.chart-scroll-wrap:active { cursor: grabbing; }
+
+.chart-scroll-inner {
+  /* width set dynamically by JS */
+  position: relative;
+}
+
+canvas.chart-canvas {
+  display: block;
+  /* width/height set by JS */
+}
+
+/* Legend */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-line {
+  width: 20px;
+  height: 2px;
+  flex-shrink: 0;
+}
+
+.chart-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
 </style>
 </head>
 <body>
@@ -625,6 +757,70 @@
     </div>
     <div class="status-bar" id="statusBar"></div>
     <!-- Sections rendered by JS -->
+    <div class="charts-card" id="chartsCard">
+  <div class="charts-header" onclick="toggleChartsSection()">
+    <div class="charts-header-left">
+      <div class="section-icon" style="background:#fde8f0;">📈</div>
+      <span class="section-title">Charts</span>
+    </div>
+    <span class="section-chevron">▼</span>
+  </div>
+  <div class="charts-body" id="chartsBody">
+    <button class="generate-btn" id="generateBtn" onclick="generateCharts()">
+      ✦ Generate Charts
+    </button>
+
+    <!-- Milk Supply -->
+    <div class="chart-block" id="chartMilkBlock">
+      <div class="chart-title">🍼 Milk Supply</div>
+      <div class="chart-subtitle">Total pumped per day (mL) · scroll left for earlier dates</div>
+      <div class="chart-scroll-wrap" id="milkScrollWrap">
+        <div class="chart-scroll-inner" id="milkScrollInner">
+          <canvas class="chart-canvas" id="milkCanvas"></canvas>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#a8cfe0;"></div>Left breast</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f5c5b0;"></div>Right breast</div>
+        <div class="legend-item"><div class="legend-line" style="background:#6b5a50;"></div>7-day avg</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f0d060; border-radius:50%;"></div>★ spill / estimated</div>
+      </div>
+    </div>
+
+    <!-- Sleep Lines -->
+    <div class="chart-block" id="chartSleepBlock">
+      <div class="chart-title">🌙 Sleep Overview</div>
+      <div class="chart-subtitle">Daily totals and averages · dual axis</div>
+      <div class="chart-scroll-wrap" id="sleepScrollWrap">
+        <div class="chart-scroll-inner" id="sleepScrollInner">
+          <canvas class="chart-canvas" id="sleepCanvas"></canvas>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-line" style="background:#c5b8e0;border-radius:2px;height:3px;"></div>Total sleep</div>
+        <div class="legend-item"><div class="legend-line" style="background:#a8c5a0;border-radius:2px;height:3px;"></div>Night sleep</div>
+        <div class="legend-item"><div class="legend-line" style="background:#f5c5b0;border-radius:2px;height:3px;border-top:2px dashed #f5c5b0;height:0;"></div>Avg nap</div>
+        <div class="legend-item"><div class="legend-line" style="background:#a8cfe0;border-radius:2px;height:3px;border-top:2px dashed #a8cfe0;height:0;"></div>Avg wake window</div>
+      </div>
+    </div>
+
+    <!-- Sleep Distribution -->
+    <div class="chart-block" id="chartDistBlock">
+      <div class="chart-title">⏰ Sleep Distribution</div>
+      <div class="chart-subtitle">24h timeline per day · scroll left for earlier dates</div>
+      <div class="chart-scroll-wrap" id="distScrollWrap">
+        <div class="chart-scroll-inner" id="distScrollInner">
+          <canvas class="chart-canvas" id="distCanvas"></canvas>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#c5b8e0;"></div>Sleeping</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f0e8d5;border:1px solid #d8c8a8;"></div>Awake</div>
+      </div>
+    </div>
+
+  </div>
+</div>
   </div>
 </div>
 
@@ -1290,6 +1486,551 @@ window.addEventListener('load', () => {
 window.addEventListener('beforeunload', e => {
   if (isDirty) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// ─── Chart instances (to destroy before re-render) ───
+let milkChart = null;
+let sleepChart = null;
+
+function toggleChartsSection() {
+  document.getElementById('chartsCard').classList.toggle('open');
+}
+
+// ─── Colour palette ───
+const C = {
+  left:      '#a8cfe0',
+  leftDark:  '#6ba8c8',
+  right:     '#f5c5b0',
+  rightDark: '#d08870',
+  avg:       '#6b5a50',
+  totalSleep:'#c5b8e0',
+  nightSleep:'#a8c5a0',
+  avgNap:    '#f5c5b0',
+  wakeWin:   '#a8cfe0',
+  sleeping:  '#c5b8e0',
+  awake:     '#f0e8d5',
+  star:      '#e8b020',
+  grid:      '#e8ddd5',
+  text:      '#6b5a50',
+  ink:       '#3a2e28',
+};
+
+const DAY_PX = 52;   // pixels per day column
+const VISIBLE_DAYS = 14;
+
+// ─── Main generate function ───
+function generateCharts() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+
+  setTimeout(() => {
+    try {
+      renderMilkChart();
+      renderSleepChart();
+      renderDistChart();
+    } catch(e) {
+      console.error('Chart error', e);
+      showToast('Chart error: ' + e.message, 4000);
+    }
+    btn.disabled = false;
+    btn.innerHTML = '↺ Regenerate Charts';
+  }, 50);
+}
+
+// ════════════════════════════════════════════
+//  MILK SUPPLY CHART
+// ════════════════════════════════════════════
+function renderMilkChart() {
+  const rows = (csvData.pumping || []).filter(r => r.valid !== 'No');
+  if (!rows.length) {
+    document.getElementById('milkCanvas').parentElement.parentElement.innerHTML =
+      '<div class="chart-empty">No pumping data yet</div>';
+    return;
+  }
+
+  // Aggregate by date
+  const byDate = {};
+  rows.forEach(r => {
+    if (!r.date) return;
+    if (!byDate[r.date]) byDate[r.date] = { left: 0, right: 0, flagged: false };
+    byDate[r.date].left  += parseFloat(r.left_amount)  || 0;
+    byDate[r.date].right += parseFloat(r.right_amount) || 0;
+    if (r.spill === 'yes' || r.estimated === 'Yes') byDate[r.date].flagged = true;
+  });
+
+  const dates = Object.keys(byDate).sort();
+  const totalDays = dates.length;
+  const chartW = Math.max(totalDays * DAY_PX, VISIBLE_DAYS * DAY_PX);
+
+  // 7-day running average of total
+  const totals = dates.map(d => byDate[d].left + byDate[d].right);
+  const runningAvg = totals.map((_, i) => {
+    const slice = totals.slice(Math.max(0, i - 6), i + 1);
+    return slice.reduce((a, b) => a + b, 0) / slice.length;
+  });
+
+  // Canvas setup
+  const canvas = document.getElementById('milkCanvas');
+  const DPR = window.devicePixelRatio || 1;
+  const H = 200;
+  canvas.width  = chartW * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = chartW + 'px';
+  canvas.style.height = H + 'px';
+  document.getElementById('milkScrollInner').style.width = chartW + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  const PAD = { top: 16, bottom: 44, left: 38, right: 10 };
+  const plotW = chartW - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+
+  const maxVal = Math.max(...totals, 1);
+  const yScale = v => PAD.top + plotH - (v / maxVal) * plotH;
+  const xCenter = i => PAD.left + (i + 0.5) * (plotW / totalDays);
+  const barW = (plotW / totalDays) * 0.6;
+
+  // Grid lines
+  ctx.strokeStyle = C.grid;
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach(f => {
+    const y = yScale(maxVal * f);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(chartW - PAD.right, y);
+    ctx.stroke();
+    ctx.fillStyle = C.text;
+    ctx.font = `${9 * DPR / DPR}px DM Sans`;
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxVal * f), PAD.left - 4, y + 3);
+  });
+
+  // Bars
+  dates.forEach((d, i) => {
+    const x = xCenter(i);
+    const left  = byDate[d].left;
+    const right = byDate[d].right;
+    const total = left + right;
+    const bx = x - barW / 2;
+
+    // Left portion (bottom)
+    const leftH = (left / maxVal) * plotH;
+    ctx.fillStyle = C.left;
+    ctx.beginPath();
+    ctx.roundRect(bx, yScale(left), barW, leftH, [3, 3, 0, 0]);
+    ctx.fill();
+
+    // Right portion (stacked on top)
+    const rightH = (right / maxVal) * plotH;
+    ctx.fillStyle = C.right;
+    ctx.beginPath();
+    ctx.roundRect(bx, yScale(total), barW, rightH, [3, 3, 0, 0]);
+    ctx.fill();
+  });
+
+  // Running average line
+  ctx.strokeStyle = C.avg;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  runningAvg.forEach((v, i) => {
+    const x = xCenter(i);
+    const y = yScale(v);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Average dots
+  runningAvg.forEach((v, i) => {
+    ctx.fillStyle = C.avg;
+    ctx.beginPath();
+    ctx.arc(xCenter(i), yScale(v), 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // X-axis labels + star flags
+  ctx.textAlign = 'center';
+  ctx.fillStyle = C.text;
+  ctx.font = `10px DM Sans`;
+  dates.forEach((d, i) => {
+    const x = xCenter(i);
+    const label = d.slice(5); // MM-DD
+    ctx.fillText(label, x, H - PAD.bottom + 14);
+    if (byDate[d].flagged) {
+      ctx.fillStyle = C.star;
+      ctx.font = `bold 11px DM Sans`;
+      ctx.fillText('★', x, H - PAD.bottom + 26);
+      ctx.fillStyle = C.text;
+      ctx.font = `10px DM Sans`;
+    }
+  });
+
+  // Scroll to end (show latest 2 weeks)
+  const wrap = document.getElementById('milkScrollWrap');
+  wrap.scrollLeft = wrap.scrollWidth;
+}
+
+// ════════════════════════════════════════════
+//  SLEEP OVERVIEW CHART (Chart.js)
+// ════════════════════════════════════════════
+function renderSleepChart() {
+  const rows = (csvData.sleeping || []).filter(r => r.valid !== 'No' && r.start_time && r.end_time);
+  if (!rows.length) {
+    document.getElementById('sleepCanvas').parentElement.parentElement.innerHTML =
+      '<div class="chart-empty">No sleep data yet</div>';
+    return;
+  }
+
+  // Parse and group by date
+  function parseMinutes(t) {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  function durationMins(row) {
+    const s = parseMinutes(row.start_time);
+    const e = parseMinutes(row.end_time);
+    if (s === null || e === null) return 0;
+    let d = e - s;
+    if (d < 0) d += 1440;
+    return d;
+  }
+
+  function isNight(row) {
+    const s = parseMinutes(row.start_time);
+    // Night sleep: starts after 19:00 or before 06:00
+    return s !== null && (s >= 19 * 60 || s < 6 * 60);
+  }
+
+  const byDate = {};
+  rows.forEach(r => {
+    if (!r.date) return;
+    if (!byDate[r.date]) byDate[r.date] = { sessions: [] };
+    byDate[r.date].sessions.push(r);
+  });
+
+  // Compute wake windows between naps on same day
+  function getWakeWindows(sessions) {
+    if (sessions.length < 2) return [];
+    const sorted = [...sessions].sort((a, b) =>
+      parseMinutes(a.start_time) - parseMinutes(b.start_time));
+    const windows = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const prevEnd = parseMinutes(sorted[i-1].end_time);
+      const nextStart = parseMinutes(sorted[i].start_time);
+      if (prevEnd !== null && nextStart !== null) {
+        let w = nextStart - prevEnd;
+        if (w < 0) w += 1440;
+        if (w > 0 && w < 600) windows.push(w); // ignore gaps > 10h (likely overnight)
+      }
+    }
+    return windows;
+  }
+
+  const dates = Object.keys(byDate).sort();
+  const totalDays = dates.length;
+  const chartW = Math.max(totalDays * DAY_PX, VISIBLE_DAYS * DAY_PX);
+
+  const totalSleepHrs  = dates.map(d => byDate[d].sessions.reduce((s, r) => s + durationMins(r), 0) / 60);
+  const nightSleepHrs  = dates.map(d => byDate[d].sessions.filter(isNight).reduce((s, r) => s + durationMins(r), 0) / 60);
+  const avgNapMins     = dates.map(d => {
+    const naps = byDate[d].sessions.filter(r => !isNight(r));
+    if (!naps.length) return null;
+    return naps.reduce((s, r) => s + durationMins(r), 0) / naps.length;
+  });
+  const avgWakeMins    = dates.map(d => {
+    const ws = getWakeWindows(byDate[d].sessions);
+    if (!ws.length) return null;
+    return ws.reduce((a, b) => a + b, 0) / ws.length;
+  });
+
+  // Destroy old chart
+  if (sleepChart) { sleepChart.destroy(); sleepChart = null; }
+
+  const canvas = document.getElementById('sleepCanvas');
+  const DPR = window.devicePixelRatio || 1;
+  const H = 220;
+  canvas.width  = chartW * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = chartW + 'px';
+  canvas.style.height = H + 'px';
+  document.getElementById('sleepScrollInner').style.width = chartW + 'px';
+
+  // Use Chart.js
+  sleepChart = new Chart(canvas, {
+    data: {
+      labels: dates.map(d => d.slice(5)),
+      datasets: [
+        {
+          type: 'line',
+          label: 'Total sleep (h)',
+          data: totalSleepHrs,
+          borderColor: C.totalSleep,
+          backgroundColor: C.totalSleep + '30',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointBackgroundColor: C.totalSleep,
+          fill: false,
+          yAxisID: 'yLeft',
+          tension: 0.3,
+        },
+        {
+          type: 'line',
+          label: 'Night sleep (h)',
+          data: nightSleepHrs,
+          borderColor: C.nightSleep,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: C.nightSleep,
+          fill: false,
+          yAxisID: 'yLeft',
+          tension: 0.3,
+        },
+        {
+          type: 'line',
+          label: 'Avg nap (min)',
+          data: avgNapMins,
+          borderColor: C.avgNap,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 3],
+          pointRadius: 3,
+          pointBackgroundColor: C.avgNap,
+          fill: false,
+          yAxisID: 'yRight',
+          tension: 0.3,
+          spanGaps: true,
+        },
+        {
+          type: 'line',
+          label: 'Avg wake window (min)',
+          data: avgWakeMins,
+          borderColor: C.wakeWin,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 3],
+          pointRadius: 3,
+          pointBackgroundColor: C.wakeWin,
+          fill: false,
+          yAxisID: 'yRight',
+          tension: 0.3,
+          spanGaps: true,
+        },
+      ]
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              if (v === null) return '';
+              const ds = ctx.dataset.label;
+              if (ds.includes('(h)')) {
+                const h = Math.floor(v); const m = Math.round((v - h) * 60);
+                return `${ds}: ${h}h ${m}m`;
+              }
+              return `${ds}: ${Math.round(v)}m`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: C.text, font: { size: 10, family: 'DM Sans' }, maxRotation: 0 },
+          grid: { color: C.grid },
+        },
+        yLeft: {
+          position: 'left',
+          ticks: {
+            color: C.text,
+            font: { size: 10, family: 'DM Sans' },
+            callback: v => v + 'h'
+          },
+          grid: { color: C.grid },
+          title: { display: false },
+        },
+        yRight: {
+          position: 'right',
+          ticks: {
+            color: C.text,
+            font: { size: 10, family: 'DM Sans' },
+            callback: v => v + 'm'
+          },
+          grid: { drawOnChartArea: false },
+        }
+      }
+    }
+  });
+
+  const wrap = document.getElementById('sleepScrollWrap');
+  wrap.scrollLeft = wrap.scrollWidth;
+}
+
+// ════════════════════════════════════════════
+//  SLEEP DISTRIBUTION (custom canvas)
+// ════════════════════════════════════════════
+function renderDistChart() {
+  const rows = (csvData.sleeping || []).filter(r => r.valid !== 'No' && r.start_time && r.end_time);
+  if (!rows.length) {
+    document.getElementById('distCanvas').parentElement.parentElement.innerHTML =
+      '<div class="chart-empty">No sleep data yet</div>';
+    return;
+  }
+
+  function parseMinutes(t) {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  // Group by date
+  const byDate = {};
+  rows.forEach(r => {
+    if (!r.date) return;
+    if (!byDate[r.date]) byDate[r.date] = [];
+    byDate[r.date].push({
+      start: parseMinutes(r.start_time),
+      end:   parseMinutes(r.end_time),
+    });
+  });
+
+  const dates = Object.keys(byDate).sort();
+  const totalDays = dates.length;
+
+  const DPR = window.devicePixelRatio || 1;
+  const COL_W = DAY_PX;
+  const LABEL_W = 36;
+  const chartW = Math.max(totalDays * COL_W + LABEL_W, VISIBLE_DAYS * COL_W + LABEL_W);
+  const H = 340; // 24h chart
+
+  const PAD = { top: 28, bottom: 20, left: LABEL_W, right: 8 };
+  const plotH = H - PAD.top - PAD.bottom;
+  const minToY = m => PAD.top + (m / 1440) * plotH;
+
+  const canvas = document.getElementById('distCanvas');
+  canvas.width  = chartW * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = chartW + 'px';
+  canvas.style.height = H + 'px';
+  document.getElementById('distScrollInner').style.width = chartW + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // Background
+  ctx.fillStyle = '#fdf6ee';
+  ctx.fillRect(0, 0, chartW, H);
+
+  // Hour grid lines
+  ctx.strokeStyle = C.grid;
+  ctx.lineWidth = 0.5;
+  ctx.fillStyle = C.text;
+  ctx.font = `9px DM Sans`;
+  ctx.textAlign = 'right';
+  for (let h = 0; h <= 24; h += 2) {
+    const y = minToY(h * 60);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(chartW - PAD.right, y); ctx.stroke();
+    if (h < 24) {
+      const label = h === 0 ? '00:00' : h < 10 ? `0${h}:00` : `${h}:00`;
+      ctx.fillText(label, PAD.left - 2, y + 3);
+    }
+  }
+
+  // Night shading (19:00–06:00)
+  ctx.fillStyle = 'rgba(100,80,160,0.05)';
+  ctx.fillRect(PAD.left, minToY(19 * 60), chartW - PAD.left - PAD.right, plotH - minToY(19 * 60) + PAD.top);
+  ctx.fillRect(PAD.left, PAD.top, chartW - PAD.left - PAD.right, minToY(6 * 60) - PAD.top);
+
+  // Column backgrounds + date labels
+  ctx.font = `10px DM Sans`;
+  ctx.textAlign = 'center';
+  dates.forEach((d, i) => {
+    const x = PAD.left + i * COL_W;
+    // Alternating subtle column bg
+    if (i % 2 === 0) {
+      ctx.fillStyle = 'rgba(0,0,0,0.015)';
+      ctx.fillRect(x, PAD.top, COL_W, plotH);
+    }
+    // Date label at top
+    ctx.fillStyle = C.text;
+    ctx.fillText(d.slice(5), x + COL_W / 2, PAD.top - 8);
+
+    // ── Draw sessions ──
+    const sessions = byDate[d] || [];
+    sessions.forEach(s => {
+      const colX = x + COL_W * 0.1;
+      const colW2 = COL_W * 0.8;
+
+      if (s.start === null || s.end === null) return;
+
+      // Handles overnight: split at midnight
+      if (s.end < s.start) {
+        // Part 1: start → midnight
+        const y1 = minToY(s.start);
+        const y2 = minToY(1440);
+        ctx.fillStyle = C.sleeping;
+        ctx.beginPath();
+        ctx.roundRect(colX, y1, colW2, y2 - y1, 3);
+        ctx.fill();
+
+        // Part 2: midnight → end (next day column if exists)
+        if (i + 1 < dates.length) {
+          const nx = PAD.left + (i + 1) * COL_W + COL_W * 0.1;
+          const ny1 = minToY(0);
+          const ny2 = minToY(s.end);
+          ctx.fillStyle = C.sleeping;
+          ctx.beginPath();
+          ctx.roundRect(nx, ny1, colW2, ny2 - ny1, 3);
+          ctx.fill();
+        }
+      } else {
+        const y1 = minToY(s.start);
+        const h = minToY(s.end) - y1;
+        ctx.fillStyle = C.sleeping;
+        ctx.beginPath();
+        ctx.roundRect(colX, y1, colW2, Math.max(h, 3), 3);
+        ctx.fill();
+      }
+    });
+
+    // ── Draw wake windows ──
+    if (sessions.length > 0) {
+      const sorted = [...sessions]
+        .filter(s => s.start !== null && s.end !== null && s.end >= s.start)
+        .sort((a, b) => a.start - b.start);
+
+      // Wake before first sleep (from midnight / 06:00)
+      // Wake between naps
+      for (let si = 0; si < sorted.length - 1; si++) {
+        const wakeStart = sorted[si].end;
+        const wakeEnd   = sorted[si + 1].start;
+        if (wakeEnd > wakeStart) {
+          const y1 = minToY(wakeStart);
+          const h  = minToY(wakeEnd) - y1;
+          if (h > 2) {
+            ctx.fillStyle = C.awake;
+            ctx.strokeStyle = '#d8c8a8';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.roundRect(x + COL_W * 0.1, y1, COL_W * 0.8, h, 3);
+            ctx.fill();
+            ctx.stroke();
+          }
+        }
+      }
+    }
+  });
+
+  // Scroll to end
+  const wrap = document.getElementById('distScrollWrap');
+  wrap.scrollLeft = wrap.scrollWidth;
+}
+  
 </script>
 </body>
 </html>
