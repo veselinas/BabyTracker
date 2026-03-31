@@ -705,8 +705,8 @@ const SECTION_DEFS = [
       { key: 'start_time',  label: 'Start',    type: 'time' },
       { key: 'end_time',    label: 'End',       type: 'time' },
       { key: 'duration',    label: 'Duration',  type: 'derived', derive: calcSleepDuration, width: 60 },
-      { key: 'location',    label: 'Location',  type: 'select-custom',
-        options: ['cot_crib','contact_nap','pram','car_seat'] },
+      { key: 'location',    label: 'Location',  type: 'select',
+        options: ['cot/crib','contact nap','pram','car seat'] },
       { key: 'interrupted', label: 'Disturbed', type: 'select', options: ['no','yes'] },
       { key: 'comment',     label: 'Note',      type: 'text', width: 90 },
     ]
