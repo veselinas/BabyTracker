@@ -776,12 +776,16 @@ async function initMsal() {
   try {
     msalInstance = new msal.PublicClientApplication(msalConfig);
     await msalInstance.initialize();
+
+    // Handle the return from Microsoft's login page
     const resp = await msalInstance.handleRedirectPromise();
-    if (resp) {
+    if (resp && resp.accessToken) {
       accessToken = resp.accessToken;
       onSignedIn();
       return;
     }
+
+    // Check if already signed in from a previous session
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
       try {
@@ -791,7 +795,7 @@ async function initMsal() {
         });
         accessToken = r.accessToken;
         onSignedIn();
-      } catch(e) { /* silent fail, user must sign in */ }
+      } catch(e) { /* needs fresh sign in */ }
     }
   } catch(e) {
     console.error('MSAL init error', e);
@@ -800,26 +804,17 @@ async function initMsal() {
 
 async function toggleAuth() {
   if (isSignedIn) {
-    msalInstance.logoutPopup();
-    isSignedIn = false;
-    accessToken = null;
-    document.getElementById('authBtn').textContent = 'Sign in';
-    document.getElementById('authBtn').classList.remove('signed-in');
-    document.getElementById('signinPrompt').style.display = '';
-    document.getElementById('appBody').style.display = 'none';
+    await msalInstance.logoutRedirect();
     return;
   }
   if (!msalInstance) { showToast('⚙️ Please set your Client ID first'); return; }
   try {
-    const r = await msalInstance.loginPopup({ scopes: ['Files.ReadWrite'] });
-    const tr = await msalInstance.acquireTokenSilent({ scopes: ['Files.ReadWrite'], account: r.account });
-    accessToken = tr.accessToken;
-    onSignedIn();
+    await msalInstance.loginRedirect({ scopes: ['Files.ReadWrite'] });
   } catch(e) {
     showToast('Sign-in failed: ' + e.message);
   }
 }
-
+  
 function onSignedIn() {
   isSignedIn = true;
   document.getElementById('authBtn').textContent = 'Sign out';
