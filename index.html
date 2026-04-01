@@ -1284,6 +1284,9 @@ function buildFieldInput(f, value, globalIdx, fieldKey, sec) {
     sel.onchange = () => {
       csvData[sec.key][globalIdx][fieldKey] = sel.value;
       isDirty = true;
+      if (fieldKey === 'start_time' || fieldKey === 'end_time') {
+        refreshSection(sec);
+      }
     };
     return sel;
   }
