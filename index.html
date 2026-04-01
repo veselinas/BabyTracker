@@ -849,7 +849,7 @@ const CSV_FILES = {
   feeding:    { file: 'feeding.csv',    cols: ['date','time','amount','type','spitting','estimated','valid'] },
   pumping:    { file: 'pumping.csv',    cols: ['date','time','pump','right_amount','left_amount','duration','spill','estimated','valid'] },
   nappies:    { file: 'nappies.csv',    cols: ['date','time','type','estimated','valid'] },
-  sleeping:   { file: 'sleeping.csv',   cols: ['date','start_time','end_time','duration','location','interrupted','comment','estimated','valid'] },
+  sleeping:   { file: 'sleeping.csv',   cols: ['date','start_time','end_time','duration','location','night','interrupted','comment','estimated','valid'] },
   activities: { file: 'activities.csv', cols: ['date','type','duration','estimated','valid'] },
 };
 
@@ -863,8 +863,8 @@ const SECTION_DEFS = [
       { key: 'time',     label: 'Time',     type: 'time' },
       { key: 'amount',   label: 'Amount (ml)', type: 'number', width: 70 },
       { key: 'type',     label: 'Type',     type: 'select',
-        options: ['formula','breast milk','breastfeeding right','breastfeeding left'] },
-      { key: 'spitting', label: 'Spit-up',  type: 'select', options: ['no','little','a lot'] },
+        options: ['breast milk','formula','breastfeeding right','breastfeeding left'] },
+      { key: 'spitting', label: 'Spit-up',  type: 'select', options: ['do not know','no','little','a lot'] },
     ]
   },
   {
@@ -874,7 +874,7 @@ const SECTION_DEFS = [
     iconClass: 'icon-pumping',
     fields: [
       { key: 'time',         label: 'Time',       type: 'time' },
-      { key: 'pump',         label: 'Pump',        type: 'select', options: ['main','wearable'] },
+      { key: 'pump',         label: 'Pump',        type: 'select', options: ['main','wearable','breastfeeding'] },
       { key: 'right_amount', label: 'Right (ml)',  type: 'number', width: 60 },
       { key: 'left_amount',  label: 'Left (ml)',   type: 'number', width: 60 },
       { key: 'duration',     label: 'Min',         type: 'number', width: 50 },
@@ -903,6 +903,7 @@ const SECTION_DEFS = [
       { key: 'duration',    label: 'Duration',  type: 'derived', derive: calcSleepDuration, width: 60 },
       { key: 'location',    label: 'Location',  type: 'select',
         options: ['cot/crib','contact nap','pram','car seat'] },
+      { key: 'night', label: 'Night', type: 'select', options: ['no','yes'] },
       { key: 'interrupted', label: 'Disturbed', type: 'select', options: ['no','yes'] },
       { key: 'comment',     label: 'Note',      type: 'text', width: 90 },
     ]
