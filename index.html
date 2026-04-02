@@ -1735,7 +1735,39 @@ function renderSleepChart() {
   const totalDays = dates.length;
   const chartW = Math.max(totalDays * DAY_PX, VISIBLE_DAYS * DAY_PX);
 
-  const totalSleepHrs  = dates.map(d => byDate[d].sessions.reduce((s, r) => s + durationMins(r), 0) / 60);
+  // Build a lookup of all valid sessions across all dates for spillover calculation
+  const allSessions = (csvData.sleeping || []).filter(r => r.valid !== 'No' && r.start_time && r.end_time);
+
+  function minutesWithinDay(targetDate) {
+    let total = 0;
+    allSessions.forEach(r => {
+      const s = parseMinutes(r.start_time);
+      const e = parseMinutes(r.end_time);
+      if (s === null || e === null) return;
+
+      // Case 1: session filed on this date, does not cross midnight
+      if (r.date === targetDate && e >= s) {
+        total += e - s;
+      }
+      // Case 2: session filed on this date, crosses midnight — count only the part up to midnight
+      else if (r.date === targetDate && e < s) {
+        total += 1440 - s;
+      }
+      // Case 3: session filed on previous date, crosses midnight — count the part from midnight
+      else {
+        const prev = new Date(targetDate + 'T00:00:00');
+        prev.setDate(prev.getDate() - 1);
+        const prevStr = prev.toISOString().slice(0, 10);
+        if (r.date === prevStr && e < s) {
+          total += e;
+        }
+      }
+    });
+    return total;
+  }
+
+  const totalSleepHrs = dates.map(d => minutesWithinDay(d) / 60);
+  
   const nightSleepHrs  = dates.map(d => byDate[d].sessions.filter(r => r.night === 'yes').reduce((s, r) => s + durationMins(r), 0) / 60);
   const avgNapMins     = dates.map(d => {
     const naps = byDate[d].sessions.filter(r => !isNight(r));
