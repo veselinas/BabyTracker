@@ -2002,32 +2002,6 @@ function renderDistChart() {
       }
     });
 
-    // ── Draw wake windows ──
-    if (sessions.length > 0) {
-      const sorted = [...sessions]
-        .filter(s => s.start !== null && s.end !== null && s.end >= s.start)
-        .sort((a, b) => a.start - b.start);
-
-      // Wake before first sleep (from midnight / 06:00)
-      // Wake between naps
-      for (let si = 0; si < sorted.length - 1; si++) {
-        const wakeStart = sorted[si].end;
-        const wakeEnd   = sorted[si + 1].start;
-        if (wakeEnd > wakeStart) {
-          const y1 = minToY(wakeStart);
-          const h  = minToY(wakeEnd) - y1;
-          if (h > 2) {
-            ctx.fillStyle = C.awake;
-            ctx.strokeStyle = '#d8c8a8';
-            ctx.lineWidth = 0.5;
-            ctx.beginPath();
-            ctx.roundRect(x + COL_W * 0.1, y1, COL_W * 0.8, h, 3);
-            ctx.fill();
-            ctx.stroke();
-          }
-        }
-      }
-    }
   });
 
   // Scroll to end
