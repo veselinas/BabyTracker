@@ -140,7 +140,7 @@
     color: var(--ink-soft);
     white-space: nowrap;
   }
-
+  
   .save-btn {
     background: var(--ink);
     color: white;
@@ -161,6 +161,50 @@
   .save-btn.saving { background: var(--sage); }
   .save-btn.saved { background: #6db86d; }
 
+  .dob-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--lavender-light);
+      border: 1.5px solid var(--lavender);
+      border-radius: 12px;
+      padding: 6px 10px;
+      flex-shrink: 0;
+    }
+     
+    .dob-wrap input {
+      border: none;
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      outline: none;
+      width: 110px;
+    }
+     
+    .dob-wrap label {
+      font-size: 12px;
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+     
+    /* Growth chart tooltip */
+    .growth-tooltip {
+      position: absolute;
+      background: var(--ink);
+      color: white;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      pointer-events: none;
+      display: none;
+      z-index: 10;
+      white-space: nowrap;
+      transform: translate(-50%, -110%);
+    }
+  
   /* ─── Date Picker Modal ─── */
   .modal-overlay {
     display: none;
@@ -733,6 +777,10 @@ canvas.chart-canvas {
     <div class="weight-wrap">
       <input type="number" id="weightInput" placeholder="—" step="0.01" min="0" max="30">
       <label>kg</label>
+    </div>
+    <div class="dob-wrap">
+      <input type="date" id="dobInput" placeholder="DOB">
+      <label>DOB</label>
     </div>
     <button class="save-btn" id="saveBtn" onclick="saveAll()">
       <span>💾</span> Save
