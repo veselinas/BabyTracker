@@ -778,10 +778,6 @@ canvas.chart-canvas {
       <input type="number" id="weightInput" placeholder="—" step="0.01" min="0" max="30">
       <label>kg</label>
     </div>
-    <div class="dob-wrap">
-      <input type="date" id="dobInput" placeholder="DOB">
-      <label>DOB</label>
-    </div>
     <button class="save-btn" id="saveBtn" onclick="saveAll()">
       <span>💾</span> Save
     </button>
@@ -814,6 +810,12 @@ canvas.chart-canvas {
     <span class="section-chevron">▼</span>
   </div>
   <div class="charts-body" id="chartsBody">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+      <div class="dob-wrap" style="flex:1;">
+        <label>Date of birth</label>
+        <input type="date" id="dobInput">
+      </div>
+    </div>
     <button class="generate-btn" id="generateBtn" onclick="generateCharts()">
       ✦ Generate Charts
     </button>
