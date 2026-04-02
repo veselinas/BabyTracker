@@ -1736,7 +1736,7 @@ function renderSleepChart() {
   const chartW = Math.max(totalDays * DAY_PX, VISIBLE_DAYS * DAY_PX);
 
   const totalSleepHrs  = dates.map(d => byDate[d].sessions.reduce((s, r) => s + durationMins(r), 0) / 60);
-  const nightSleepHrs  = dates.map(d => byDate[d].sessions.filter(isNight).reduce((s, r) => s + durationMins(r), 0) / 60);
+  const nightSleepHrs  = dates.map(d => byDate[d].sessions.filter(r => r.night === 'yes').reduce((s, r) => s + durationMins(r), 0) / 60);
   const avgNapMins     = dates.map(d => {
     const naps = byDate[d].sessions.filter(r => !isNight(r));
     if (!naps.length) return null;
