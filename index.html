@@ -1177,6 +1177,8 @@ async function loadAllData() {
   setStatus('Loading data…');
   renderSections(true);
   try {
+    
+    
     const keys = Object.keys(CSV_FILES);
     const results = await Promise.all(keys.map(k => readCsv(CSV_FILES[k].file)));
     keys.forEach((k, i) => csvData[k] = results[i]);
@@ -1188,6 +1190,7 @@ async function loadAllData() {
   } catch(e) {
     setStatus('Error loading data: ' + e.message);
   }
+  await loadWhoData();
 }
 
 function updateWeightDisplay() {
@@ -1603,6 +1606,7 @@ function generateCharts() {
       renderMilkChart();
       renderSleepChart();
       renderDistChart();
+      renderWeightChart()
     } catch(e) {
       console.error('Chart error', e);
       showToast('Chart error: ' + e.message, 4000);
