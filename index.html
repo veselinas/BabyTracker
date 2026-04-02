@@ -867,6 +867,29 @@ canvas.chart-canvas {
       </div>
     </div>
 
+    <!-- Weight Chart -->
+    <div class="chart-block" id="chartWeightBlock">
+      <div class="chart-title">⚖️ Weight Growth Chart</div>
+      <div class="chart-subtitle" id="weightChartSubtitle">WHO percentile reference · weekly (0–13 weeks) then monthly</div>
+      <div id="weightChartWrap">
+        <div class="chart-empty" id="weightChartEmpty" style="display:none"></div>
+        <div class="chart-scroll-wrap" id="weightScrollWrap" style="display:none">
+          <div style="position:relative;">
+            <div class="chart-scroll-inner" id="weightScrollInner">
+              <canvas class="chart-canvas" id="weightCanvas"></canvas>
+            </div>
+            <div class="growth-tooltip" id="growthTooltip"></div>
+          </div>
+        </div>
+        <div class="chart-legend" id="weightLegend" style="display:none">
+          <div class="legend-item"><div class="legend-dot" style="background:#c5b8e0;opacity:0.4;"></div>P3–P97 band</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#a8c5a0;opacity:0.6;"></div>P10–P90 band</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#6b5a50;border-radius:50%;"></div>P50 median</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#e05050;border-radius:50%;"></div>Baby's weight</div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
   </div>
@@ -2087,6 +2110,362 @@ function renderDistChart() {
   // Scroll to end
   const wrap = document.getElementById('distScrollWrap');
   wrap.scrollLeft = wrap.scrollWidth;
+}
+
+// ════════════════════════════════════════════
+//  WEIGHT GROWTH CHART
+// ════════════════════════════════════════════
+ 
+// WHO percentile data — loaded from OneDrive CSVs
+// Stored as: { weekly: [{Week, P3, P10, P25, P50, P75, P90, P97}, ...],
+//              monthly: [{Month, P3, P10, P25, P50, P75, P90, P97}, ...] }
+let whoData = { weekly: null, monthly: null };
+ 
+// Attempt to load WHO reference files alongside the other CSVs.
+// Called from within loadAllData — add the line shown below.
+async function loadWhoData() {
+  const PERCENTILES = ['P3','P10','P25','P50','P75','P90','P97'];
+ 
+  async function fetchWhoFile(filename, ageKey) {
+    try {
+      const meta = await graphGet(`/me/drive/root:/${ONEDRIVE_FOLDER}/${filename}`);
+      const r = await fetch(meta['@microsoft.graph.downloadUrl']);
+      const text = await r.text();
+      const rows = parseCsv(text);
+      // Normalise column names to uppercase, trim spaces
+      return rows.map(row => {
+        const out = {};
+        Object.keys(row).forEach(k => { out[k.trim().toUpperCase()] = row[k]; });
+        return out;
+      }).filter(row => row[ageKey] !== undefined && row[ageKey] !== '');
+    } catch(e) {
+      return null; // file not found or unreadable
+    }
+  }
+ 
+  const [weekly, monthly] = await Promise.all([
+    fetchWhoFile('boys_weight_growth_w.csv', 'WEEK'),
+    fetchWhoFile('boys_weight_growth.csv',   'MONTH'),
+  ]);
+ 
+  whoData.weekly  = weekly;
+  whoData.monthly = monthly;
+}
+ 
+// ── Call this from generateCharts() — add renderWeightChart() at the end
+//    of your generateCharts() try block, alongside the other render calls.
+ 
+function renderWeightChart() {
+  const empty   = document.getElementById('weightChartEmpty');
+  const wrap    = document.getElementById('weightScrollWrap');
+  const legend  = document.getElementById('weightLegend');
+  const subtitle = document.getElementById('weightChartSubtitle');
+ 
+  function showEmpty(msg) {
+    empty.textContent = msg;
+    empty.style.display = 'block';
+    wrap.style.display   = 'none';
+    legend.style.display = 'none';
+  }
+ 
+  // Need DOB
+  const dobVal = document.getElementById('dobInput').value;
+  if (!dobVal) { showEmpty('Enter date of birth at the top to show this chart'); return; }
+ 
+  // Need weight data
+  const weightRows = (csvData.weight || []).filter(r => r.valid !== 'No' && r.weight && r.date);
+  if (!weightRows.length) { showEmpty('No weight measurements recorded yet'); return; }
+ 
+  // Need WHO data
+  if (!whoData.monthly) { showEmpty('WHO reference file (boys_weight_growth.csv) not found in OneDrive folder'); return; }
+ 
+  const dob = new Date(dobVal + 'T00:00:00');
+ 
+  // ── Build unified age axis ──
+  // Use weekly data for 0–13 weeks if available, monthly from month 3 onwards
+  const useWeekly = !!whoData.weekly;
+  const PERCENTILES = ['P3','P10','P25','P50','P75','P90','P97'];
+ 
+  // Find max age of baby's measurements in weeks
+  const babyPoints = weightRows.map(r => {
+    const d = new Date(r.date + 'T00:00:00');
+    const diffDays = (d - dob) / (1000 * 60 * 60 * 24);
+    const ageWeeks = diffDays / 7;
+    const ageMonths = diffDays / 30.4375;
+    return { date: r.date, weight: parseFloat(r.weight), ageWeeks, ageMonths,
+             estimated: r.estimated === 'Yes' };
+  }).filter(p => p.ageWeeks >= 0);
+ 
+  if (!babyPoints.length) { showEmpty('No weight measurements after date of birth'); return; }
+ 
+  const maxAgeWeeks  = Math.max(...babyPoints.map(p => p.ageWeeks)) + 2;
+  const maxAgeMonths = maxAgeWeeks / 4.345;
+ 
+  // ── Build reference curve points ──
+  // Each point: { x (weeks), P3, P10, P25, P50, P75, P90, P97 }
+  const refPoints = [];
+ 
+  if (useWeekly) {
+    // Weekly data for weeks 0–13
+    const weeklyRows = whoData.weekly
+      .map(r => ({ age: parseFloat(r['WEEK']), ...Object.fromEntries(PERCENTILES.map(p => [p, parseFloat(r[p])])) }))
+      .filter(r => !isNaN(r.age) && r.age <= 13)
+      .sort((a, b) => a.age - b.age);
+    weeklyRows.forEach(r => refPoints.push({ x: r.age, ...Object.fromEntries(PERCENTILES.map(p => [p, r[p]])) }));
+  }
+ 
+  // Monthly data — convert months to weeks, start from month 3 if weekly available, else from 0
+  const startMonth = useWeekly ? 3 : 0;
+  const monthlyRows = whoData.monthly
+    .map(r => ({ age: parseFloat(r['MONTH']), ...Object.fromEntries(PERCENTILES.map(p => [p, parseFloat(r[p])])) }))
+    .filter(r => !isNaN(r.age) && r.age >= startMonth && r.age <= Math.ceil(maxAgeMonths) + 1)
+    .sort((a, b) => a.age - b.age);
+  monthlyRows.forEach(r => refPoints.push({ x: r.age * 4.345, ...Object.fromEntries(PERCENTILES.map(p => [p, r[p]])) }));
+ 
+  if (!refPoints.length) { showEmpty('Could not build reference curves from WHO data'); return; }
+ 
+  // ── Canvas sizing ──
+  const DPR = window.devicePixelRatio || 1;
+  const PX_PER_WEEK = 28;
+  const maxX = Math.max(...refPoints.map(r => r.x), maxAgeWeeks);
+  const chartW = Math.max(maxX * PX_PER_WEEK + 60, VISIBLE_DAYS * DAY_PX);
+  const H = 280;
+  const PAD = { top: 16, bottom: 48, left: 42, right: 14 };
+  const plotW = chartW - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+ 
+  const canvas = document.getElementById('weightCanvas');
+  canvas.width  = chartW * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = chartW + 'px';
+  canvas.style.height = H + 'px';
+  document.getElementById('weightScrollInner').style.width = chartW + 'px';
+ 
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+ 
+  // Y scale
+  const allWeights = [
+    ...refPoints.map(r => r.P3),
+    ...refPoints.map(r => r.P97),
+    ...babyPoints.map(p => p.weight)
+  ].filter(v => !isNaN(v));
+  const minY = Math.max(0, Math.floor(Math.min(...allWeights) - 0.3));
+  const maxY = Math.ceil(Math.max(...allWeights) + 0.3);
+ 
+  const xToCanv  = x => PAD.left + (x / maxX) * plotW;
+  const yToCanv  = y => PAD.top  + plotH - ((y - minY) / (maxY - minY)) * plotH;
+ 
+  // ── Background ──
+  ctx.fillStyle = '#fdf6ee';
+  ctx.fillRect(0, 0, chartW, H);
+ 
+  // ── Grid ──
+  ctx.strokeStyle = '#e8ddd5';
+  ctx.lineWidth = 0.5;
+  ctx.fillStyle = C.text;
+  ctx.font = `9px DM Sans`;
+ 
+  // Y grid
+  for (let w = minY; w <= maxY; w += 0.5) {
+    const y = yToCanv(w);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(chartW - PAD.right, y); ctx.stroke();
+    if (w === Math.round(w)) {
+      ctx.textAlign = 'right';
+      ctx.fillText(w.toFixed(1) + 'kg', PAD.left - 3, y + 3);
+    }
+  }
+ 
+  // X grid — mark week transitions and months
+  const ticksDrawn = new Set();
+  refPoints.forEach(r => {
+    const x = xToCanv(r.x);
+    const key = Math.round(r.x * 10);
+    if (ticksDrawn.has(key)) return;
+    ticksDrawn.add(key);
+    ctx.strokeStyle = '#e8ddd5';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, H - PAD.bottom); ctx.stroke();
+ 
+    ctx.fillStyle = C.text;
+    ctx.textAlign = 'center';
+    // Label: "Wn" for weeks, "Mm" for months
+    if (useWeekly && r.x <= 13) {
+      ctx.fillText(`W${Math.round(r.x)}`, x, H - PAD.bottom + 12);
+    } else {
+      const mo = Math.round(r.x / 4.345);
+      ctx.fillText(`M${mo}`, x, H - PAD.bottom + 12);
+    }
+  });
+ 
+  // ── Shaded bands ──
+  function drawBand(lower, upper, colour) {
+    ctx.beginPath();
+    ctx.moveTo(xToCanv(refPoints[0].x), yToCanv(refPoints[0][lower]));
+    refPoints.forEach(r => ctx.lineTo(xToCanv(r.x), yToCanv(r[lower])));
+    [...refPoints].reverse().forEach(r => ctx.lineTo(xToCanv(r.x), yToCanv(r[upper])));
+    ctx.closePath();
+    ctx.fillStyle = colour;
+    ctx.fill();
+  }
+ 
+  drawBand('P3',  'P97', 'rgba(197,184,224,0.20)'); // P3–P97 outer band
+  drawBand('P10', 'P90', 'rgba(168,197,160,0.25)'); // P10–P90 inner band
+  drawBand('P25', 'P75', 'rgba(168,197,160,0.20)'); // P25–P75 tightest band
+ 
+  // ── Percentile lines ──
+  const lineStyles = {
+    P3:  { color: '#c5b8e0', width: 1,   dash: [4,3] },
+    P10: { color: '#a8c5a0', width: 1,   dash: [3,2] },
+    P25: { color: '#a8c5a0', width: 1,   dash: [] },
+    P50: { color: '#6b5a50', width: 2,   dash: [] },
+    P75: { color: '#a8c5a0', width: 1,   dash: [] },
+    P90: { color: '#a8c5a0', width: 1,   dash: [3,2] },
+    P97: { color: '#c5b8e0', width: 1,   dash: [4,3] },
+  };
+ 
+  PERCENTILES.forEach(p => {
+    const s = lineStyles[p];
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth   = s.width;
+    ctx.setLineDash(s.dash);
+    ctx.beginPath();
+    refPoints.forEach((r, i) => {
+      const x = xToCanv(r.x);
+      const y = yToCanv(r[p]);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+ 
+    // Label at right end
+    const last = refPoints[refPoints.length - 1];
+    ctx.fillStyle  = s.color;
+    ctx.font       = `bold 9px DM Sans`;
+    ctx.textAlign  = 'left';
+    ctx.setLineDash([]);
+    ctx.fillText(p, xToCanv(last.x) + 3, yToCanv(last[p]) + 3);
+  });
+ 
+  // Separator between weekly and monthly
+  if (useWeekly) {
+    const sepX = xToCanv(13);
+    ctx.strokeStyle = '#d0c0b0';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(sepX, PAD.top); ctx.lineTo(sepX, H - PAD.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#b0a090';
+    ctx.font = '8px DM Sans';
+    ctx.textAlign = 'center';
+    ctx.fillText('weekly → monthly', sepX, PAD.top + 8);
+  }
+ 
+  // ── Baby's weight points ──
+  babyPoints.forEach(p => {
+    const x = xToCanv(p.ageWeeks);
+    const y = yToCanv(p.weight);
+ 
+    // Outer glow
+    ctx.fillStyle = 'rgba(224,80,80,0.15)';
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+ 
+    // Dot
+    ctx.fillStyle = p.estimated ? '#e09030' : '#e05050';
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+ 
+    // Estimated marker
+    if (p.estimated) {
+      ctx.fillStyle = '#e09030';
+      ctx.font = 'bold 9px DM Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('~', x, y - 8);
+    }
+  });
+ 
+  // Connect baby points with a line
+  ctx.strokeStyle = 'rgba(224,80,80,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([]);
+  const sorted = [...babyPoints].sort((a, b) => a.ageWeeks - b.ageWeeks);
+  ctx.beginPath();
+  sorted.forEach((p, i) => {
+    const x = xToCanv(p.ageWeeks);
+    const y = yToCanv(p.weight);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+ 
+  // ── Tooltip on touch/hover ──
+  const tooltip = document.getElementById('growthTooltip');
+  const scrollWrap = document.getElementById('weightScrollWrap');
+ 
+  function showGrowthTooltip(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = (clientX - rect.left) / (rect.width / chartW);
+ 
+    // Find nearest baby point
+    let nearest = null, nearestDist = Infinity;
+    babyPoints.forEach(p => {
+      const px = xToCanv(p.ageWeeks);
+      const dist = Math.abs(px - cx);
+      if (dist < nearestDist) { nearestDist = dist; nearest = p; }
+    });
+    if (!nearest || nearestDist > 30) { tooltip.style.display = 'none'; return; }
+ 
+    const w = Math.floor(nearest.ageWeeks);
+    const d = Math.round((nearest.ageWeeks - w) * 7);
+    const ageStr = d > 0 ? `${w}w ${d}d` : `${w}w`;
+ 
+    // Find percentile position
+    const ageM = nearest.ageWeeks / 4.345;
+    let refRow = refPoints.reduce((best, r) =>
+      Math.abs(r.x - nearest.ageWeeks) < Math.abs(best.x - nearest.ageWeeks) ? r : best, refPoints[0]);
+    let pctLabel = '';
+    if (nearest.weight < refRow.P3)       pctLabel = '< P3';
+    else if (nearest.weight < refRow.P10) pctLabel = 'P3–P10';
+    else if (nearest.weight < refRow.P25) pctLabel = 'P10–P25';
+    else if (nearest.weight < refRow.P50) pctLabel = 'P25–P50';
+    else if (nearest.weight < refRow.P75) pctLabel = 'P50–P75';
+    else if (nearest.weight < refRow.P90) pctLabel = 'P75–P90';
+    else if (nearest.weight < refRow.P97) pctLabel = 'P90–P97';
+    else                                   pctLabel = '> P97';
+ 
+    tooltip.textContent = `${nearest.date}  ·  Age: ${ageStr}  ·  ${nearest.weight.toFixed(2)}kg  ·  ${pctLabel}`;
+    tooltip.style.display = 'block';
+ 
+    const dotX = xToCanv(nearest.ageWeeks);
+    const dotY = yToCanv(nearest.weight);
+    const scrollLeft = scrollWrap.scrollLeft;
+    tooltip.style.left = (PAD.left + dotX - scrollLeft + 14) + 'px'; // relative to scroll inner
+    tooltip.style.top  = dotY + 'px';
+  }
+ 
+  canvas.addEventListener('mousemove', e => showGrowthTooltip(e.clientX, e.clientY));
+  canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    showGrowthTooltip(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: false });
+ 
+  // ── Show ──
+  empty.style.display   = 'none';
+  wrap.style.display    = 'block';
+  legend.style.display  = 'flex';
+ 
+  subtitle.textContent = useWeekly
+    ? 'WHO percentile reference · weekly (0–13w) then monthly · tap a point for details'
+    : 'WHO percentile reference · monthly · tap a point for details';
+ 
+  // Scroll to show baby's latest point
+  const lastPoint = sorted[sorted.length - 1];
+  if (lastPoint) {
+    const targetX = xToCanv(lastPoint.ageWeeks) - chartW * 0.7;
+    scrollWrap.scrollLeft = Math.max(0, targetX);
+  }
 }
   
 </script>
