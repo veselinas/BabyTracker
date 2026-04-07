@@ -160,34 +160,7 @@
   .save-btn:active { transform: scale(0.96); }
   .save-btn.saving { background: var(--sage); }
   .save-btn.saved { background: #6db86d; }
-
-  .dob-wrap {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      background: var(--lavender-light);
-      border: 1.5px solid var(--lavender);
-      border-radius: 12px;
-      padding: 6px 10px;
-      flex-shrink: 0;
-    }
      
-    .dob-wrap input {
-      border: none;
-      background: transparent;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--ink);
-      outline: none;
-      width: 110px;
-    }
-     
-    .dob-wrap label {
-      font-size: 12px;
-      color: var(--ink-soft);
-      white-space: nowrap;
-    }
      
     /* Growth chart tooltip */
     .growth-tooltip {
@@ -810,12 +783,7 @@ canvas.chart-canvas {
     <span class="section-chevron">▼</span>
   </div>
   <div class="charts-body" id="chartsBody">
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-      <div class="dob-wrap" style="flex:1;">
-        <label>Date of birth</label>
-        <input type="date" id="dobInput">
-      </div>
-    </div>
+    
     <button class="generate-btn" id="generateBtn" onclick="generateCharts()">
       ✦ Generate Charts
     </button>
@@ -2175,8 +2143,11 @@ function renderWeightChart() {
   }
  
   // Need DOB
-  const dobVal = document.getElementById('dobInput').value;
-  if (!dobVal) { showEmpty('Enter date of birth at the top to show this chart'); return; }
+  const weightRowsSorted = (csvData.weight || [])
+    .filter(r => r.valid !== 'No' && r.weight && r.date)
+    .sort((a, b) => a.date < b.date ? -1 : 1);
+  if (!weightRowsSorted.length) { showEmpty('No weight measurements recorded yet'); return; }
+  const dobVal = weightRowsSorted[0].date;
  
   // Need weight data
   const weightRows = (csvData.weight || []).filter(r => r.valid !== 'No' && r.weight && r.date);
