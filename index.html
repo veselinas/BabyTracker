@@ -989,7 +989,7 @@ let isDirty = false;
 // ─── Utilities ───
 function todayStr() {
   const d = new Date();
-  return d.toISOString().slice(0,10);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 function formatDateDisplay(str) {
@@ -1499,7 +1499,7 @@ function renderCal() {
   const daysInMonth = new Date(calViewYear, calViewMonth, 0).getDate();
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(calViewYear, calViewMonth-1, d);
-    const dtStr = dt.toISOString().slice(0,10);
+    const dtStr = `${calViewYear}-${String(calViewMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const el = document.createElement('div');
     el.className = 'cal-day';
     if (dtStr === todayStr()) el.classList.add('today');
