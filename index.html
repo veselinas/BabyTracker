@@ -891,7 +891,7 @@ const CSV_FILES = {
   pumping:    { file: 'pumping.csv',    cols: ['date','time','pump','right_amount','left_amount','duration','spill','estimated','valid'] },
   nappies:    { file: 'nappies.csv',    cols: ['date','time','type','estimated','valid'] },
   sleeping:   { file: 'sleeping.csv',   cols: ['date','start_time','end_time','duration','location','night','interrupted','comment','estimated','valid'] },
-  activities: { file: 'activities.csv', cols: ['date','type','duration','estimated','valid'] },
+  activities: { file: 'activities.csv', cols: ['date','type','rating','note','estimated','valid'] },
 };
 
 const SECTION_DEFS = [
@@ -955,9 +955,11 @@ const SECTION_DEFS = [
     icon: '🌤',
     iconClass: 'icon-activities',
     fields: [
-      { key: 'type',     label: 'Type',     type: 'select-custom',
+      { key: 'type',   label: 'Activity', type: 'select-custom',
         options: ['tummy time','walk','bath'] },
-      { key: 'duration', label: 'Min',      type: 'number', width: 55 },
+      { key: 'rating', label: 'Rating',   type: 'select',
+        options: ['average','poor','excellent'] },
+      { key: 'note',   label: 'Note',     type: 'text', width: 100 },
     ]
   },
 ];
