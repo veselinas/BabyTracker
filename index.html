@@ -900,7 +900,7 @@ const SECTION_DEFS = [
       { key: 'time',     label: 'Time',     type: 'time' },
       { key: 'amount',   label: 'Amount (ml)', type: 'number', width: 70 },
       { key: 'type',     label: 'Type',     type: 'select',
-        options: ['breast milk','formula','solids','breastfeeding right','breastfeeding left'] },
+        options: ['breast milk','formula','solids', 'water', 'breastfeeding right','breastfeeding left'] },
       { key: 'spitting', label: 'Spit-up',  type: 'select', options: ['do not know','no','little','a lot'] },
     ]
   },
@@ -952,7 +952,7 @@ const SECTION_DEFS = [
     iconClass: 'icon-activities',
     fields: [
       { key: 'type',   label: 'Activity', type: 'select-custom',
-        options: ['tummy time','walk','bath','solids'] },
+        options: ['tummy time','walk','bath','solids', 'milestone'] },
       { key: 'rating', label: 'Rating',   type: 'select',
         options: ['average','poor','excellent'] },
       { key: 'note',   label: 'Note',     type: 'text', width: 100 },
